@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="project">
+	<select id="selectfile" resultType="drivevo"
+		parameterType="drivevo">
+		select * from DRIVE where FILENO=#{fileno}
+	</select>
+
+	<select id="selectallfile" resultType="drivevo"
+		parameterType="String">
+		select * from DRIVE where PRJCTNO=#{prjctno} and DELETEAT=0
+	</select>
+	<select id="folderselectallfile" resultType="drivevo"
+		parameterType="drivevo">
+		select * from DRIVE where PRJCTNO=#{prjctno} and DELETEAT=0 and
+		FLPTH=#{flpth}
+	</select>
+
+	<insert id="upfile" parameterType="drivevo">
+		INSERT INTO DRIVE (
+		FILENO	<!--파일번호 -->
+		, PRJCTNO		<!--프로젝트번호 -->
+		, FILENM	<!--파일명 -->
+		, FLPTH	<!--파일경로 -->
+		, FILETY	<!--파일유형 -->
+		, DELETEAT	<!--삭제여부 -->
+		, UPPERFILENO	<!--상위파일번호 -->
+		, RFILENM	<!--저장되는파일명 -->
+		, FILEUPLOADDE	<!--파일업로드날짜 -->
+		)
+
+		SELECT codetyid || TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) +
+		DRIVE_SEQ.NEXTVAL) FILENO
+		,#{prjctno}	<!--프로젝트번호 -->
+		,#{filenm}	<!--파일명 -->
+		,#{flpth}	<!--파일경로 -->
+		,#{filety}	<!--파일유형 -->
+		,#{deleteat}	<!--삭제여부 -->
+		,#{upperfileno}	<!--상위파일번호 -->
+		,#{rfilenm}	<!--저장되는파일명 -->
+		,SYSDATE
+
+		FROM code_group
+		WHERE codetyid = UPPER('FL')
+
+	</insert>
+	<update id="defile" parameterType="drivevo">
+		update DRIVE set DELETEAT=1 where FILENO=#{fileno} and PRJCTNO=#{prjctno}
+	</update>
+
+	<!--프로젝트 select -->
+	<select id="selectAllpro" resultType="projectvo"
+		parameterType="String">
+		select project.*, (select count(*)from member where
+		prjctno=project.prjctno) membercnt
+		from project, member
+		where
+		project.prjctno = member.prjctno
+		and member.usid = #{usid}
+		and
+		prjctsttus='ING'
+		order by bkmkat desc
+	</select>
+
+	<select id="invitelist2" parameterType="String"
+		resultType="projectvo">
+		select prjctnm,
+		(select count(*)from member where
+		prjctno=project.prjctno)membercnt
+		from project
+		where prjctno=#{prjctno}
+
+	</select>
+
+	<!-- 프로젝트 참여자 명수 -->
+	<select id="selectproCnt" parameterType="String"
+		resultType="int">
+		select count(*)
+		from member
+		where prjctno = #{prjctno}
+	</select>
+
+	<!--프로젝트 생성 -->
+	<insert id="registproject" parameterType="projectvo">
+		INSERT INTO project
+		(prjctno,
+		prjctcreatde,
+		prjctsttus,
+		prjctnm,
+		prjctcn,
+		prjctty,
+		bkmkat,
+		snwrtatr,
+		filedownatr)
+
+		SELECT codetyid ||
+		TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) +
+		PJ_SEQ.NEXTVAL) prjctno,
+		SYSDATE,
+		'ING',
+		#{prjctnm},
+		#{prjctcn},
+		#{prjctty},
+		#{bkmkat},
+		#{snwrtatr},
+		#{filedownatr}
+
+		FROM code_group
+		WHERE
+		codetyid = UPPER('pj')
+	</insert>
+
+	<!-- 프로젝트 생성시 생성자 1명 참여 -->
+	<insert id="insertmember" parameterType="membervo">
+		insert into member
+		(prjctno, usid, usernm, author, aditde, deletede)
+		select codetyid ||
+		TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) +
+		PJ_SEQ.CURRVAL) prjctno
+		, #{usid}
+		, #{usernm}
+		, 1
+		, sysdate
+		, null
+		from
+		code_group
+		WHERE codetyid = UPPER('pj')
+	</insert>
+
+	<!-- 완료된 프로젝트 -->
+	<select id="selectcomplatepro" resultType="projectvo"
+		parameterType="String">
+		select project.*,
+		(select count(*)from member where
+		prjctno=project.prjctno)membercnt
+		from project, member
+		where
+		project.prjctno = member.prjctno
+		and prjctsttus='COMP'
+		and member.usid =
+		#{usid}
+		order by bkmkat desc
+	</select>
+
+	<select id="recyclebin" resultType="projectvo"
+		parameterType="String">
+		select project.*,
+		(select count(*)from member where
+		prjctno=project.prjctno)membercnt
+		from project, member
+		where
+		project.prjctno = member.prjctno
+		and prjctsttus='DEL'
+		and member.usid =
+		#{usid}
+	</select>
+
+	<!-- 프로젝트 상태 >> 삭제 -->
+	<update id="deleterecycle" parameterType="projectvo">
+		update project set
+		prjctsttus = 'DEL'
+		where prjctno=#{prjctno}
+	</update>
+	<!-- 프로젝트 상태 >> 완료 -->
+	<update id="completepro" parameterType="projectvo">
+		update project set
+		prjctsttus = 'COMP'
+		where prjctno=#{prjctno}
+	</update>
+	<!-- 프로젝트 상태 완료에서 >> 진행 -->
+	<update id="modifybtnpro" parameterType="projectvo">
+		update project set
+		prjctsttus = 'ING'
+		where prjctno=#{prjctno}
+	</update>
+	<!-- 프로젝트 상태 휴지통에서 >> 진행으로 복구 -->
+	<update id="restorepro" parameterType="projectvo">
+		update project set
+		prjctsttus = 'ING'
+		where prjctno=#{prjctno}
+	</update>
+
+	<!-- 즐겨찾기 추가 -->
+	<update id="favoritepro" parameterType="projectvo">
+		update project set bkmkat
+		= '1'
+		where prjctno=#{prjctno}
+	</update>
+	<!-- 즐겨찾기 해제 -->
+	<update id="favorite" parameterType="projectvo">
+		update project set bkmkat =
+		'0'
+		where prjctno=#{prjctno}
+	</update>
+
+	<!-- 프로젝트 완전 삭제 -->
+	<delete id="deleteproject" parameterType="String">
+		delete from project
+		where prjctno = #{prjctno}
+	</delete>
+
+
+	<select id="tasklist" parameterType="String" resultType="taskvo">
+		select
+		task.*,users.PROFLPHOTO
+		from task,users
+		where task.JOBWRTER=users.usernm
+		and prjctno=#{prjctno}
+	</select>
+
+	<select id="selectuser" parameterType="membervo"
+		resultType="membervo">
+		select USID
+		from users
+		where USID like '%'||#{value}||'%' and
+		PRJCTNO=#{prjctno}
+	</select>
+
+	<select id="selectallproject" parameterType="String"
+		resultType="taskvo">
+
+		select task.PRJCTNO,
+		task.JOBNO,
+		task.JOBNM,
+		task.JOBCN,
+		task.JOBPRIORT,
+		task.JOBSTTUS,
+		task.PRGSDO,
+		task.JOBRGSDE,
+		task.JOBBGNDE,
+		task.JOBCLOSDE,
+		task.UPPERJOBNO,
+		task.JOBWRTER,
+		users.PROFLPHOTO
+		FROM
+		task,users WHERE task.JOBWRTER = users.USERNM AND prjctno =
+		#{prjctno}
+		ORDER BY task.JOBRGSDE DESC
+
+	</select>
+
+	<insert id="inserttask" parameterType="taskvo">
+		INSERT INTO task (
+		JOBNO,
+		PRJCTNO,
+		JOBNM,
+		JOBCN,
+		JOBPRIORT,
+		JOBSTTUS,
+		PRGSDO,
+		JOBRGSDE,
+		JOBBGNDE,
+		JOBCLOSDE,
+		UPPERJOBNO,
+		JOBWRTER,
+		FILENAME,
+		REALFILENAME,
+		COMPLETECH,
+		TWRITERID
+		)
+		SELECT codetyid ||
+		TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) +
+		TASK_SEQ.NEXTVAL) JOBNO
+		,#{prjctno}
+		,#{jobnm}	<!--업무번호 -->
+		,#{jobcn}	<!--업무이름 -->
+		,#{jobpriort}	<!--업무내용 -->
+		,#{jobsttus}	<!--업무상태 -->
+		,#{prgsdo}		<!--진척도 -->
+		,sysdate
+		<!-- ,SELECT TO_DATE(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') FROM dual; 업무등록일 -->
+		,#{jobbgnde}	<!--업무시작일 -->
+		,#{jobclosde}	<!--업무마감일 -->
+		,#{upperjobno}	<!--상위업무번호 -->
+		,#{jobwrter}	<!--업무작성자 -->
+		,#{filename}
+		,#{realfilename}
+		,0
+		,#{twriterid}
+		FROM code_group
+		WHERE
+		codetyid = UPPER('ST')
+
+	</insert>
+
+	<insert id="inserttask_user" parameterType="String">
+		INSERT INTO
+		task_users (
+		jobno
+		,chargerid
+		)
+		SELECT codetyid ||
+		TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE,'yymm')),7,0)+TASK_SEQ.CURRVAL)
+		jobno
+		, #{chargerid}
+		FROM code_group
+		WHERE codetyid = UPPER('ST')
+
+	</insert>
+
+	<delete id="deleteTask" parameterType="String">
+		delete from task where
+		JOBNO=#{jobno}
+	</delete>
+
+	<select id="selectAllCT" parameterType="String"
+		resultType="taskCalenVo">
+		SELECT *
+		FROM (
+		SELECT
+		'task' as biztype,
+		prjctno,
+		jobno as sno,
+		(select
+		LISTAGG(chargernm, ',') WITHIN GROUP (ORDER BY chargernm desc)
+		from task_users x
+		where x.jobno = a.jobno
+		group by jobno) as attend,
+		''
+		as chnm,
+		twriterid as ctwriterid,
+		jobnm as titlenm,
+		jobcn as centent,
+		jobpriort as priort,
+		jobsttus as sttus,
+		prgsdo,
+		jobrgsde as regdate,
+		jobbgnde as bgdate,
+		jobclosde as endate,
+		jobwrter as writer,
+		filename,
+		realfilename,
+		'' as fxlocation,
+		'' as cwriter
+		FROM
+		task a
+		WHERE prjctno =
+		#{prjctno}
+		union all
+		SELECT
+		'calendar' as biztype,
+		prjctno,
+		fxno as sno,
+		''
+		as attend,
+		(select
+		LISTAGG(chnm, ',') WITHIN GROUP (ORDER BY chnm desc)
+		from calendar_users x
+		where x.fxno = a.fxno
+		group by fxno) as chnm,
+		cwriterid as ctwriterid,
+		fxsj as titlenm,
+		fxcn as centent,
+		'' as priort,
+		'' as sttus,
+		0 as prgsdo,
+		fxregistday as regdate,
+		fxbgnde as bgdate,
+		fxendde as endate,
+		'' as writer,
+		'' as filename,
+		'' as realfilename,
+		fxlocation,
+		cwriter
+		FROM
+		calendar a
+		WHERE prjctno = #{prjctno}
+		) ORDER BY
+		regdate DESC
+	</select>
+
+	<select id="countprogress" parameterType="String"
+		resultType="Integer">
+		select count(*)
+		from task
+		where prjctno=#{value} and
+		JOBSTTUS='진행'
+
+	</select>
+
+	<select id="counthold" parameterType="String"
+		resultType="Integer">
+		select count(*)
+		from task
+		where prjctno=#{value} and
+		JOBSTTUS='보류'
+
+	</select>
+
+	<select id="countrequest" parameterType="String"
+		resultType="Integer">
+		select count(*)
+		from task
+		where prjctno=#{value} and
+		JOBSTTUS='요청'
+
+	</select>
+
+	<select id="countcomplete" parameterType="String"
+		resultType="Integer">
+		select count(*)
+		from task
+		where prjctno=#{value} and
+		JOBSTTUS='완료'
+
+	</select>
+
+	<!-- 업무 첨부파일다운로드 -->
+	<select id="selectfiledown" parameterType="String"
+		resultType="taskvo">
+		SELECT filename, realfilename FROM task WHERE jobno =
+		#{jobno}
+	</select>
+
+
+</mapper>

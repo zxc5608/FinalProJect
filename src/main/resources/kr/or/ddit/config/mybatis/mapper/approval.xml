@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="approval">
+	<!-- 업무 완료 보고서 작성 완료시 insert -->
+	<insert id="insertapproval" parameterType="approvalvo">
+		insert into approval (docno, jobno, wrter, docsj, doccn, atchmnfl, wrtede, taskclsde)
+		select codetyid || TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) + ap_seq.nextval) docno
+        		, #{jobno} jobno
+        		, #{wrter} wrter
+        		, #{docsj} docsj
+        		, #{doccn} doccn
+        		, null atchmnfl
+        		, sysdate wrtede
+        		, #{taskclsde} taskclsde
+		from code_group
+		where codetyid = UPPER('ap')
+	</insert>
+	
+	<insert id="insertapproLine" parameterType="String">
+		insert into approval_line (docno, usid, sanctnsttus, sanctnde, sanctnsn)
+		select codetyid || TO_CHAR(RPAD(TO_NUMBER(TO_CHAR(SYSDATE, 'yymm')), 7, 0) + ap_seq.currval) docno
+        		, #{usid} usid
+        		, '대기' sanctnsttus
+        		, null sanctnde
+        		, 2 sanctnsn
+		from code_group
+		where codetyid = UPPER('ap')
+	</insert>
+	
+	<!-- 어떤 업무의 정보를 불러올지 select -->
+	<select id="selectTask" parameterType="String" resultType="taskvo" >
+		select * from task where jobno = #{jobno}
+	</select>
+	
+	<!-- 결제 담당자에게 보여줄 결재목록 불러오기 -->
+	<select id="approvalList" resultType="approvalvo">
+		select docsj, wrter, wrtede, taskclsde, sanctnsttus, jobno
+		from approval, approval_line
+		where approval.docno = approval_line.docno
+		order by jobno
+	</select>
+	
+	<!-- 결제 목록중 하나의 업무 클릭시 정보 불러오기 -->
+	<select id="approveTask" resultType="approvalvo" parameterType="String">
+		select approval.jobno
+			, task.jobnm
+			, task.jobbgnde
+			, wrter
+			, taskclsde
+			, atchmnfl
+			, docsj
+			, doccn
+		from task, approval
+		where task.jobno = approval.jobno
+  		  and approval.jobno = #{jobno}
+	</select>
+	
+</mapper>

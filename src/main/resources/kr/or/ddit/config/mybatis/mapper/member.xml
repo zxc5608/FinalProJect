@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="member">
+	<select id="selectMember">
+		select * from member
+	</select>
+	
+	<select id="selectMemberPr" parameterType="String" resultType="membervo">
+		select * from member where prjctno = #{prjctno}
+	</select>
+	
+	<select id="selectProfile" resultType="usersvo" parameterType="String">
+		select users.PROFLPHOTO , users.USERNM, users.usid
+		from users , member
+		where users.usid = member.usid
+		and prjctno = #{prjctno}
+		
+	
+	</select>
+	
+	<select id="selectPro" parameterType="String" resultType="usersvo">
+
+		
+		select PROFLPHOTO , USERNM
+		from users 
+		where usid = #{usid}
+		
+	</select>
+	
+</mapper>
